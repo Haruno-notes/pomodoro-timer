@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Work Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F0EDE8;
+  --surface: #FAFAF7;
+  --surface2: #ECEAE5;
+  --border: #E0DDD7;
+  --text: #2A2825;
+  --text2: #7A7670;
+  --text3: #B0ADA8;
+  --work: #3D6B5A;
+  --work-light: #E6F0EC;
+  --break: #5C6BA0;
+  --break-light: #ECEEF8;
+  --red: #8B3A2A;
+  --red-light: #F4EAE8;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); min-height: 100vh; color: var(--text); }
+
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; padding: 0 1.5rem;
+}
+.nav-btn {
+  padding: 1rem 1.25rem; font-size: 13px; font-weight: 500;
+  color: var(--text2); border: none; background: none; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: color 0.2s, border-color 0.2s;
+  font-family: inherit; letter-spacing: 0.03em;
+}
+.nav-btn.active { color: var(--text); border-bottom-color: var(--text); }
+
+.page { display: none; padding: 1.5rem 1rem; max-width: 480px; margin: 0 auto; }
+.page.active { display: block; }
+
+/* SETTINGS ROW */
+.settings-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem;
+}
+.settings-title {
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem;
+}
+.settings-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+.setting-item label {
+  display: block; font-size: 11px; color: var(--text3); margin-bottom: 4px;
+  letter-spacing: 0.04em;
+}
+.setting-select {
+  width: 100%; height: 36px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  color: var(--text); font-size: 13px; font-family: inherit;
+  padding: 0 0.5rem; appearance: none; cursor: pointer;
+  text-align: center;
+}
+
+/* SUBJECT ROW */
+.subject-row { display: flex; gap: 8px; margin-bottom: 1rem; align-items: center; }
+.subject-select {
+  flex: 1; height: 40px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 14px; font-family: inherit;
+  padding: 0 0.75rem; appearance: none; cursor: pointer;
+}
+.btn-add-subject {
+  height: 40px; padding: 0 1rem; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 13px; color: var(--text2); cursor: pointer;
+  font-family: inherit; white-space: nowrap; transition: background 0.15s;
+}
+.btn-add-subject:hover { background: var(--surface2); }
+
+/* TIMER CARD */
+.timer-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.75rem 1.5rem;
+  text-align: center; margin-bottom: 0.75rem;
+  transition: border-color 0.4s;
+}
+.timer-card.work-mode { border-color: var(--work); }
+.timer-card.break-mode { border-color: var(--break); }
+
+.mode-badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  border-radius: 4px; padding: 3px 12px; margin-bottom: 0.75rem;
+  transition: background 0.4s, color 0.4s;
+}
+.mode-badge.work { background: var(--work-light); color: var(--work); }
+.mode-badge.break { background: var(--break-light); color: var(--break); }
+
+.set-progress {
+  font-size: 12px; color: var(--text3); margin-bottom: 0.5rem;
+  font-family: 'DM Mono', monospace; letter-spacing: 0.05em;
+}
+.set-dots { display: flex; gap: 5px; justify-content: center; margin-bottom: 1rem; flex-wrap: wrap; }
+.set-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border); transition: background 0.3s;
+}
+.set-dot.done { background: var(--work); }
+.set-dot.current { background: var(--work); animation: pulse 1.2s infinite; }
+.set-dot.break-current { background: var(--break); animation: pulse 1.2s infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+.time-display {
+  font-family: 'DM Mono', monospace; font-size: 60px; font-weight: 500;
+  letter-spacing: 3px; transition: color 0.3s; line-height: 1;
+  margin-bottom: 0.5rem; color: var(--text);
+}
+.time-display.work-color { color: var(--work); }
+.time-display.break-color { color: var(--break); }
+
+.subject-badge {
+  font-size: 12px; color: var(--text3); margin-bottom: 0.25rem;
+}
+.datetime-display {
+  font-family: 'DM Mono', monospace; font-size: 12px;
+  color: var(--text3); letter-spacing: 0.05em;
+}
+
+/* PROGRESS BAR */
+.progress-wrap {
+  background: var(--surface2); border-radius: 4px; height: 4px;
+  margin: 0.75rem 0 0; overflow: hidden;
+}
+.progress-bar {
+  height: 100%; border-radius: 4px; width: 0%;
+  transition: width 1s linear, background 0.4s;
+  background: var(--work);
+}
+.progress-bar.break-bar { background: var(--break); }
+
+/* BUTTONS */
+.btn-row { display: flex; gap: 8px; margin-bottom: 1rem; }
+.btn {
+  flex: 1; height: 44px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 13px; font-weight: 500; color: var(--text2);
+  cursor: pointer; font-family: inherit;
+  transition: background 0.15s, transform 0.1s; letter-spacing: 0.02em;
+}
+.btn:hover { background: var(--surface2); }
+.btn:active { transform: scale(0.97); }
+.btn.start { border-color: var(--work); color: var(--work); }
+.btn.start:hover { background: var(--work-light); }
+.btn.stop { border-color: var(--red); color: var(--red); }
+.btn.stop:hover { background: var(--red-light); }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+
+/* STATS GRID */
+.stats-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; margin-bottom: 1rem; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.75rem 1rem;
+}
+.stat-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; letter-spacing: 0.04em; }
+.stat-value { font-family: 'DM Mono', monospace; font-size: 18px; font-weight: 500; color: var(--text); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+/* SECTION CARD */
+.section-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; margin-bottom: 1rem;
+}
+.section-header {
+  padding: 0.65rem 1rem; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.btn-text-danger {
+  font-size: 11px; color: var(--red); background: none; border: none;
+  cursor: pointer; font-family: inherit; font-weight: 500;
+}
+.btn-text-danger:hover { text-decoration: underline; }
+.record-list { max-height: 200px; overflow-y: auto; }
+.record-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.55rem 1rem; border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.record-item:last-child { border-bottom: none; }
+.record-meta { display: flex; flex-direction: column; gap: 2px; }
+.record-time { color: var(--text3); font-size: 12px; }
+.record-subject { color: var(--text2); font-size: 12px; }
+.record-right { text-align: right; }
+.record-dur { font-family: 'DM Mono', monospace; font-weight: 500; color: var(--text); }
+.record-sets { font-size: 11px; color: var(--text3); }
+.empty-msg { padding: 1.5rem; text-align: center; font-size: 13px; color: var(--text3); }
+
+/* STATS PAGE */
+.filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
+.filter-chip {
+  padding: 5px 12px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface);
+  font-size: 12px; font-weight: 500; color: var(--text2);
+  cursor: pointer; font-family: inherit; transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.filter-chip.active { background: var(--text); border-color: var(--text); color: var(--surface); }
+
+.period-tabs {
+  display: flex; border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; margin-bottom: 1rem;
+}
+.period-tab {
+  flex: 1; padding: 8px 0; text-align: center;
+  font-size: 12px; font-weight: 500; color: var(--text2);
+  background: var(--surface); border: none; cursor: pointer;
+  font-family: inherit; transition: background 0.15s, color 0.15s;
+  border-right: 1px solid var(--border);
+}
+.period-tab:last-child { border-right: none; }
+.period-tab.active { background: var(--text); color: var(--surface); }
+
+.total-banner {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.25rem 1.5rem;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 1rem; margin-bottom: 1rem;
+}
+.total-block .total-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; letter-spacing: 0.04em; }
+.total-block .total-value { font-family: 'DM Mono', monospace; font-size: 26px; font-weight: 500; color: var(--text); }
+.total-block .total-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.chart-wrap { padding: 1rem; }
+.chart-bars { display: flex; align-items: flex-end; gap: 4px; height: 100px; margin-bottom: 6px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; }
+.bar { width: 100%; border-radius: 4px 4px 0 0; background: var(--work); min-height: 2px; transition: height 0.4s ease; }
+
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left; padding: 0.5rem 1rem;
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td { padding: 0.6rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); }
+.data-table tr:last-child td { border-bottom: none; }
+.td-mono { font-family: 'DM Mono', monospace; font-weight: 500; }
+.td-sub { color: var(--text2); }
+
+/* MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.3); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 14px;
+  padding: 1.5rem; width: 300px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.modal h3 { font-size: 15px; font-weight: 600; margin-bottom: 1rem; }
+.modal input {
+  width: 100%; height: 40px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--bg);
+  padding: 0 0.75rem; font-size: 14px; font-family: inherit;
+  color: var(--text); margin-bottom: 1rem; outline: none;
+}
+.modal input:focus { border-color: var(--text2); }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.btn-modal {
+  height: 36px; padding: 0 1rem; border-radius: 8px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  font-family: inherit; border: 1px solid var(--border);
+  background: var(--surface); color: var(--text2); transition: background 0.15s;
+}
+.btn-modal:hover { background: var(--surface2); }
+.btn-modal.primary { background: var(--text); color: var(--surface); border-color: var(--text); }
+.btn-modal.primary:hover { opacity: 0.85; }
+
+/* NOTIFICATION */
+.notif {
+  position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+  background: var(--text); color: var(--surface);
+  padding: 10px 20px; border-radius: 10px;
+  font-size: 13px; font-weight: 500; z-index: 300;
+  opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  white-space: nowrap;
+}
+.notif.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<nav>
+  <button class="nav-btn active" onclick="showPage('timer')">タイマー</button>
+  <button class="nav-btn" onclick="showPage('stats')">統計</button>
+</nav>
+
+<div class="notif" id="notif"></div>
+
+<!-- TIMER PAGE -->
+<div class="page active" id="page-timer">
+
+  <div class="settings-card">
+    <div class="settings-title">ポモドーロ設定</div>
+    <div class="settings-grid">
+      <div class="setting-item">
+        <label>作業時間</label>
+        <select class="setting-select" id="work-min">
+          <option value="5">5分</option>
+          <option value="10">10分</option>
+          <option value="15">15分</option>
+          <option value="20">20分</option>
+          <option value="25" selected>25分</option>
+          <option value="30">30分</option>
+          <option value="35">35分</option>
+          <option value="40">40分</option>
+          <option value="45">45分</option>
+          <option value="50">50分</option>
+          <option value="55">55分</option>
+          <option value="60">60分</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>休憩時間</label>
+        <select class="setting-select" id="break-min">
+          <option value="5" selected>5分</option>
+          <option value="10">10分</option>
+          <option value="15">15分</option>
+          <option value="20">20分</option>
+          <option value="25">25分</option>
+          <option value="30">30分</option>
+        </select>
+      </div>
+      <div class="setting-item">
+        <label>セット数</label>
+        <select class="setting-select" id="total-sets">
+          <option value="1">1回</option>
+          <option value="2">2回</option>
+          <option value="3">3回</option>
+          <option value="4" selected>4回</option>
+          <option value="5">5回</option>
+          <option value="6">6回</option>
+          <option value="7">7回</option>
+          <option value="8">8回</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="subject-row">
+    <select class="subject-select" id="subject-select">
+      <option value="">教科を選択</option>
+    </select>
+    <button class="btn-add-subject" onclick="openModal()">＋ 追加</button>
+  </div>
+
+  <div class="timer-card" id="timer-card">
+    <div class="mode-badge work" id="mode-badge">作業中</div>
+    <div class="set-progress" id="set-progress">1 / 4 セット</div>
+    <div class="set-dots" id="set-dots"></div>
+    <div class="time-display" id="display">25:00</div>
+    <div class="subject-badge" id="subject-badge">教科未選択</div>
+    <div class="datetime-display" id="datetime-display"></div>
+    <div class="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn start" id="btn-start" onclick="startTimer()">▶ スタート</button>
+    <button class="btn stop" id="btn-stop" onclick="pauseTimer()" disabled>⏸ 一時停止</button>
+    <button class="btn" onclick="resetTimer()">↺ リセット</button>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">今日の学習時間</div>
+      <div class="stat-value" id="stat-today-time">0:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今日のセット数</div>
+      <div class="stat-value" id="stat-today-sets">0</div>
+      <div class="stat-sub">セット完了</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今週の学習時間</div>
+      <div class="stat-value" id="stat-week-time">0:00</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">今週のセット数</div>
+      <div class="stat-value" id="stat-week-sets">0</div>
+      <div class="stat-sub">セット完了</div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">
+      <span>記録履歴</span>
+      <button class="btn-text-danger" onclick="confirmResetAll()">全データ削除</button>
+    </div>
+    <div class="record-list" id="record-list">
+      <div class="empty-msg">まだ記録がありません</div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS PAGE -->
+<div class="page" id="page-stats">
+  <div class="section-card" style="margin-bottom:1rem;">
+    <div class="section-header">教科フィルター</div>
+    <div style="padding:0.75rem 1rem;">
+      <div class="filter-row" id="filter-row">
+        <button class="filter-chip active" onclick="setFilter('all')">すべて</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="period-tabs">
+    <button class="period-tab active" data-period="week" onclick="setPeriod('week')">週別</button>
+    <button class="period-tab" data-period="year" onclick="setPeriod('year')">年別</button>
+  </div>
+
+  <div class="total-banner">
+    <div class="total-block">
+      <div class="total-label">合計学習時間</div>
+      <div class="total-value" id="total-time">0:00</div>
+      <div class="total-sub" id="period-label">今週</div>
+    </div>
+    <div class="total-block">
+      <div class="total-label">完了セット数</div>
+      <div class="total-value" id="total-sets-val">0</div>
+      <div class="total-sub" id="subject-label">すべての教科</div>
+    </div>
+  </div>
+
+  <div class="section-card" style="margin-bottom:1rem;">
+    <div class="section-header">学習時間グラフ</div>
+    <div class="chart-wrap">
+      <div class="chart-bars" id="chart-bars"></div>
+      <div style="display:flex;gap:4px;" id="chart-labels"></div>
+    </div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">教科別内訳</div>
+    <table class="data-table">
+      <thead><tr><th>教科</th><th>時間</th><th>セット</th></tr></thead>
+      <tbody id="subject-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>教科を追加</h3>
+    <input type="text" id="modal-input" placeholder="例：英語、簿記、プログラミング..." maxlength="20">
+    <div class="modal-btns">
+      <button class="btn-modal" onclick="closeModal()">キャンセル</button>
+      <button class="btn-modal primary" onclick="addSubject()">追加</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- DATA ----
+let records = [];
+let subjects = [];
+try {
+  records = JSON.parse(localStorage.getItem('wt_records') || '[]');
+  subjects = JSON.parse(localStorage.getItem('wt_subjects') || '[]');
+} catch(e){}
+
+// ---- STATE ----
+let isRunning = false;
+let isBreak = false;
+let currentSet = 1;
+let remainSec = 0;
+let totalWorkSec = 0; // work seconds in current session
+let sessionSets = 0;  // completed sets in current session
+let interval = null;
+let totalDuration = 0;
+let currentFilter = 'all';
+let currentPeriod = 'week';
+
+// ---- UTILS ----
+function fmtTimer(sec) {
+  const m = Math.floor(sec/60), s = sec%60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function fmtShort(sec) {
+  const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60);
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}` : `0:${String(m).padStart(2,'0')}`;
+}
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function isSameDay(d1,d2){ return new Date(d1).toDateString()===new Date(d2).toDateString(); }
+function isSameWeek(d1,d2){
+  const a=new Date(d1), b=new Date(d2);
+  const sa=new Date(a); sa.setDate(a.getDate()-a.getDay());
+  const sb=new Date(b); sb.setDate(b.getDate()-b.getDay());
+  return sa.toDateString()===sb.toDateString();
+}
+function save() {
+  try {
+    localStorage.setItem('wt_records', JSON.stringify(records));
+    localStorage.setItem('wt_subjects', JSON.stringify(subjects));
+  } catch(e){}
+}
+function getWorkMin(){ return parseInt(document.getElementById('work-min').value); }
+function getBreakMin(){ return parseInt(document.getElementById('break-min').value); }
+function getTotalSets(){ return parseInt(document.getElementById('total-sets').value); }
+function getSubject(){ return document.getElementById('subject-select').value || '未分類'; }
+
+// ---- NOTIFICATION ----
+function showNotif(msg) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+function playSound(type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if (type === 'work') {
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+    } else {
+      osc.frequency.setValueAtTime(660, ctx.currentTime);
+      osc.frequency.setValueAtTime(440, ctx.currentTime + 0.15);
+    }
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch(e){}
+}
+
+// ---- UI UPDATE ----
+function updateTimerUI() {
+  const totalSets = getTotalSets();
+  document.getElementById('display').textContent = fmtTimer(remainSec);
+  document.getElementById('set-progress').textContent = `${currentSet} / ${totalSets} セット`;
+
+  // dots
+  const dotsEl = document.getElementById('set-dots');
+  let html = '';
+  for (let i=1; i<=totalSets; i++) {
+    if (i < currentSet) html += `<div class="set-dot done"></div>`;
+    else if (i === currentSet) {
+      html += `<div class="set-dot ${isRunning ? (isBreak ? 'break-current' : 'current') : ''}"></div>`;
+    } else html += `<div class="set-dot"></div>`;
+  }
+  dotsEl.innerHTML = html;
+
+  // mode badge & colors
+  const badge = document.getElementById('mode-badge');
+  const disp = document.getElementById('display');
+  const card = document.getElementById('timer-card');
+  const bar = document.getElementById('progress-bar');
+  if (isBreak) {
+    badge.textContent = '休憩中';
+    badge.className = 'mode-badge break';
+    disp.className = 'time-display break-color';
+    card.className = 'timer-card break-mode';
+    bar.className = 'progress-bar break-bar';
+    const total = getBreakMin() * 60;
+    bar.style.width = `${((total - remainSec) / total) * 100}%`;
+  } else {
+    badge.textContent = isRunning ? '作業中' : '準備中';
+    badge.className = 'mode-badge work';
+    disp.className = isRunning ? 'time-display work-color' : 'time-display';
+    card.className = isRunning ? 'timer-card work-mode' : 'timer-card';
+    bar.className = 'progress-bar';
+    const total = getWorkMin() * 60;
+    bar.style.width = `${((total - remainSec) / total) * 100}%`;
+  }
+
+  document.getElementById('subject-badge').textContent = getSubject();
+}
+
+function initTimer() {
+  isBreak = false;
+  currentSet = 1;
+  remainSec = getWorkMin() * 60;
+  totalDuration = getWorkMin() * 60;
+  totalWorkSec = 0;
+  sessionSets = 0;
+  updateTimerUI();
+}
+
+// ---- TIMER LOGIC ----
+function startTimer() {
+  if (isRunning) return;
+  if (remainSec === 0) initTimer();
+  isRunning = true;
+  document.getElementById('btn-start').disabled = true;
+  document.getElementById('btn-stop').disabled = false;
+  document.getElementById('work-min').disabled = true;
+  document.getElementById('break-min').disabled = true;
+  document.getElementById('total-sets').disabled = true;
+  interval = setInterval(tick, 1000);
+  updateTimerUI();
+}
+
+function tick() {
+  remainSec--;
+  if (!isBreak) totalWorkSec++;
+  updateTimerUI();
+
+  if (remainSec <= 0) {
+    clearInterval(interval);
+    isRunning = false;
+
+    if (!isBreak) {
+      // work done
+      sessionSets++;
+      const totalSets = getTotalSets();
+      if (currentSet >= totalSets) {
+        // all sets done
+        saveRecord();
+        showNotif(`🎉 全 ${totalSets} セット完了！お疲れ様でした`);
+        playSound('work');
+        resetTimer();
+        return;
+      } else {
+        // start break
+        showNotif(`✅ ${currentSet}セット完了！休憩しましょう`);
+        playSound('work');
+        isBreak = true;
+        remainSec = getBreakMin() * 60;
+        currentSet++;
+        isRunning = true;
+        interval = setInterval(tick, 1000);
+        updateTimerUI();
+      }
+    } else {
+      // break done
+      showNotif(`⏰ 休憩終了！作業を始めましょう`);
+      playSound('break');
+      isBreak = false;
+      remainSec = getWorkMin() * 60;
+      isRunning = true;
+      interval = setInterval(tick, 1000);
+      updateTimerUI();
+    }
+    updateStats();
+  }
+}
+
+function pauseTimer() {
+  if (!isRunning) return;
+  isRunning = false;
+  clearInterval(interval);
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+  const badge = document.getElementById('mode-badge');
+  badge.textContent = '一時停止';
+  document.getElementById('display').className = 'time-display';
+  document.getElementById('timer-card').className = 'timer-card';
+}
+
+function resetTimer() {
+  clearInterval(interval);
+  isRunning = false;
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').disabled = true;
+  document.getElementById('work-min').disabled = false;
+  document.getElementById('break-min').disabled = false;
+  document.getElementById('total-sets').disabled = false;
+  initTimer();
+}
+
+function saveRecord() {
+  if (totalWorkSec > 0) {
+    records.unshift({
+      ts: new Date().toISOString(),
+      sec: totalWorkSec,
+      sets: sessionSets,
+      subject: getSubject()
+    });
+    save();
+    updateStats();
+    renderRecords();
+  }
+}
+
+function confirmResetAll() {
+  if (confirm('全ての記録を削除しますか？この操作は元に戻せません。')) {
+    records = [];
+    save();
+    updateStats(); renderRecords(); renderStatsPage();
+  }
+}
+
+// ---- STATS (timer page) ----
+function updateStats() {
+  const now = new Date();
+  let todayTime=0, todaySets=0, weekTime=0, weekSets=0;
+  records.forEach(r => {
+    if (isSameDay(r.ts, now)) { todayTime+=r.sec; todaySets+=r.sets||0; }
+    if (isSameWeek(r.ts, now)) { weekTime+=r.sec; weekSets+=r.sets||0; }
+  });
+  document.getElementById('stat-today-time').textContent = fmtShort(todayTime);
+  document.getElementById('stat-today-sets').textContent = todaySets;
+  document.getElementById('stat-week-time').textContent = fmtShort(weekTime);
+  document.getElementById('stat-week-sets').textContent = weekSets;
+}
+
+function renderRecords() {
+  const list = document.getElementById('record-list');
+  if (!records.length) { list.innerHTML = '<div class="empty-msg">まだ記録がありません</div>'; return; }
+  list.innerHTML = records.slice(0,20).map(r =>
+    `<div class="record-item">
+      <div class="record-meta">
+        <span class="record-time">${fmtTime(r.ts)}</span>
+        <span class="record-subject">${r.subject||'未分類'}</span>
+      </div>
+      <div class="record-right">
+        <div class="record-dur">${fmtShort(r.sec)}</div>
+        <div class="record-sets">${r.sets||0}セット</div>
+      </div>
+    </div>`
+  ).join('');
+}
+
+// ---- SUBJECTS ----
+function renderSubjectSelect() {
+  const sel = document.getElementById('subject-select');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">教科を選択</option>';
+  subjects.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    if (s === cur) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+function renderFilterChips() {
+  const row = document.getElementById('filter-row');
+  row.innerHTML = `<button class="filter-chip ${currentFilter==='all'?'active':''}" onclick="setFilter('all')">すべて</button>`;
+  subjects.forEach(s => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-chip' + (currentFilter===s?' active':'');
+    btn.textContent = s;
+    btn.onclick = () => setFilter(s);
+    row.appendChild(btn);
+  });
+}
+function openModal() {
+  document.getElementById('modal').classList.add('open');
+  document.getElementById('modal-input').value = '';
+  setTimeout(() => document.getElementById('modal-input').focus(), 100);
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); }
+function addSubject() {
+  const val = document.getElementById('modal-input').value.trim();
+  if (!val || subjects.includes(val)) { closeModal(); return; }
+  subjects.push(val);
+  save(); renderSubjectSelect(); renderFilterChips(); closeModal();
+}
+document.getElementById('modal-input').addEventListener('keydown', e => { if(e.key==='Enter') addSubject(); });
+
+// ---- STATS PAGE ----
+function setFilter(s) { currentFilter = s; renderFilterChips(); renderStatsPage(); }
+function setPeriod(p) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.toggle('active', t.dataset.period===p));
+  renderStatsPage();
+}
+function getFiltered() {
+  return currentFilter === 'all' ? records : records.filter(r => r.subject === currentFilter);
+}
+function renderStatsPage() {
+  const filtered = getFiltered();
+  const now = new Date();
+  const labels = { week:'今週', year:'今年' };
+  document.getElementById('period-label').textContent = labels[currentPeriod];
+  document.getElementById('subject-label').textContent = currentFilter==='all' ? 'すべての教科' : currentFilter;
+
+  let totalTime=0, totalSetsCount=0;
+  filtered.forEach(r => {
+    const ok = currentPeriod==='week' ? isSameWeek(r.ts,now) : new Date(r.ts).getFullYear()===now.getFullYear();
+    if (ok) { totalTime+=r.sec; totalSetsCount+=(r.sets||0); }
+  });
+  document.getElementById('total-time').textContent = fmtShort(totalTime);
+  document.getElementById('total-sets-val').textContent = totalSetsCount;
+
+  renderChart(filtered, now);
+  renderSubjectTable(filtered, now);
+}
+
+function renderChart(filtered, now) {
+  const barsEl = document.getElementById('chart-bars');
+  const labelsEl = document.getElementById('chart-labels');
+  let buckets = [];
+  if (currentPeriod === 'week') {
+    for (let i=6; i>=0; i--) {
+      const d = new Date(now); d.setDate(now.getDate()-i);
+      const sec = filtered.filter(r => isSameDay(r.ts, d)).reduce((a,r)=>a+r.sec,0);
+      buckets.push({ label:`${d.getMonth()+1}/${d.getDate()}`, sec });
+    }
+  } else {
+    for (let i=5; i>=0; i--) {
+      const d = new Date(now); d.setMonth(now.getMonth()-i);
+      const sec = filtered.filter(r => {
+        const rd = new Date(r.ts);
+        return rd.getFullYear()===d.getFullYear() && rd.getMonth()===d.getMonth();
+      }).reduce((a,r)=>a+r.sec,0);
+      buckets.push({ label:`${d.getMonth()+1}月`, sec });
+    }
+  }
+  const max = Math.max(...buckets.map(b=>b.sec), 1);
+  barsEl.innerHTML = buckets.map(b => {
+    const pct = Math.max((b.sec/max)*100, b.sec>0?4:0);
+    return `<div class="bar-col"><div class="bar" style="height:${pct}%"></div></div>`;
+  }).join('');
+  labelsEl.innerHTML = buckets.map(b =>
+    `<div style="flex:1;text-align:center;font-size:10px;color:var(--text3)">${b.label}</div>`
+  ).join('');
+}
+
+function renderSubjectTable(filtered, now) {
+  const tbody = document.getElementById('subject-tbody');
+  const map = {};
+  filtered.forEach(r => {
+    const ok = currentPeriod==='week' ? isSameWeek(r.ts,now) : new Date(r.ts).getFullYear()===now.getFullYear();
+    if (ok) {
+      const k = r.subject||'未分類';
+      if (!map[k]) map[k] = { sec:0, sets:0 };
+      map[k].sec += r.sec; map[k].sets += (r.sets||0);
+    }
+  });
+  const entries = Object.entries(map).sort((a,b)=>b[1].sec-a[1].sec);
+  if (!entries.length) {
+    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text3);padding:1.5rem">データがありません</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = entries.map(([sub,v]) =>
+    `<tr>
+      <td class="td-sub">${sub}</td>
+      <td class="td-mono">${fmtShort(v.sec)}</td>
+      <td class="td-mono">${v.sets}</td>
+    </tr>`
+  ).join('');
+}
+
+// ---- PAGE NAV ----
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.querySelector(`[onclick="showPage('${id}')"]`).classList.add('active');
+  if (id==='stats') { renderFilterChips(); renderStatsPage(); }
+}
+
+// ---- DATETIME ----
+function updateDatetime() {
+  const now = new Date();
+  const days = ['日','月','火','水','木','金','土'];
+  const y = now.getFullYear(), mo = now.getMonth()+1, d = now.getDate();
+  const day = days[now.getDay()];
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('datetime-display').textContent = `${y}/${mo}/${d}（${day}） ${h}:${m}:${s}`;
+}
+updateDatetime();
+setInterval(updateDatetime, 1000);
+
+// ---- INIT ----
+renderSubjectSelect();
+updateStats();
+renderRecords();
+initTimer();
+
+// settings change → reset timer display
+['work-min','break-min','total-sets'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { if (!isRunning) initTimer(); });
+});
+</script>
+</body>
+</html>
